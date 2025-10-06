@@ -83,3 +83,15 @@ If you find this work useful, please cite our paper:
       primaryClass={cs.CL}
 }
 ```
+
+## Additions
+
+- 4-bit loading (NF4) for both models (observer and performer). This significantly reduces the VRAM usage, allowing both models to fit on the GPU(s) without encountering out-of-memory problems.
+- Keep models in memory, but run them sequentially to maintain peak memory usage low.
+ Device mapping to move performer logits to CPU, freeing VRAM.
+CPU offload by moving logits to the CPU and emptying the cache. 
+- Make use of unshifted logits.
+- Shorter max tokens.
+- Shared tokenizer between performer and observer.
+- Stick to only inferences. No gradients.
+
