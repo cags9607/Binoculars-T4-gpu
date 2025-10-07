@@ -131,8 +131,8 @@ class FalconA100Binoculars:
 
         # Align everything on DEVICE_1 for the metric computations
         enc_dev  = enc.to(DEVICE_1)
-        obs_dev  = obs_logits.to(DEVICE_1)
-        perf_dev = perf_logits.to(DEVICE_1)
+        obs_dev  = obs_logits.to(DEVICE_1).float()
+        perf_dev = perf_logits.to(DEVICE_1).float()
 
         # Metrics expect unshifted logits; they do the shift internally
         ppl   = perplexity(enc_dev,  perf_dev)
