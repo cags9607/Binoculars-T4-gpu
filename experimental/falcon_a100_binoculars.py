@@ -61,7 +61,7 @@ class FalconA100Binoculars:
 
         # Start with SDPA; upgrade to flash_attn2 post-load if available
         common = dict(
-            trust_remote_code=True,
+            trust_remote_code=False,
             attn_implementation="eager",
             low_cpu_mem_usage=True,
             quantization_config=qcfg,
