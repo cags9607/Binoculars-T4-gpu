@@ -58,7 +58,7 @@ class FalconT4Binoculars:
         )
 
         common = dict(
-            trust_remote_code=True,
+            trust_remote_code=False,
             attn_implementation="eager",   # safest on T4 (no flash-attn v2)
             low_cpu_mem_usage=True,
             quantization_config=qcfg,
