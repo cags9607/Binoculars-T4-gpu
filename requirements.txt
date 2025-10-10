@@ -1,5 +1,5 @@
 sentencepiece
-transformers[torch] @ https://github.com/huggingface/transformers/archive/refs/tags/v4.31.0.zip
+transformers>=4.44
 datasets
 numpy
 gradio
@@ -9,7 +9,7 @@ seaborn
 pandas
 torch
 accelerate
-bitsandbytes
+bitsandbytes>=0.43.1
 safetensors
 huggingface_hub
 tokenizers
