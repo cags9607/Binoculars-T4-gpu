@@ -11,10 +11,9 @@ Output:
         bino_score:  float  (higher = more human-like; lower = more AI-like)
         bino_pred:   Int64  (1 = AI-generated, 0 = human-generated)
         bino_mode:   str    ("low-fpr" or "accuracy")
-        bino_threshold: float used for this run
 
 Notes:
-    - This uses your FalconT4Binoculars class for scoring.
+    - This uses custom FalconT4Binoculars class for scoring.
     - Scores are computed as ppl / x_ppl (higher → more human).
     - Prediction rule: score < threshold → AI (1), else Human (0).
 """
@@ -31,10 +30,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-# Torch is required by the Binoculars class, but we don't use it directly here
 import torch  # noqa: F401
 
-# Import your class (make sure the filename matches)
 from experimental.falcon_t4_binoculars import FalconT4Binoculars
 
 
@@ -72,16 +69,14 @@ def predict_texts(
     n = len(df)
     out = df.copy().reset_index(drop=True)
 
-    # Prepare output columns with NA-able dtypes like your image script
+    # Prepare output columns with NA-able dtypes
     out["bino_score"] = pd.Series([pd.NA] * n, dtype="Float64")
     out["bino_pred"] = pd.Series([pd.NA] * n, dtype="Int64")
     out["bino_mode"] = bino.mode if hasattr(bino, "mode") else pd.NA
-    # We’ll store the numeric threshold explicitly per row (useful for audits)
+    
     # We’ll try to read bino.threshold and fallback gracefully.
     threshold_value = getattr(bino, "threshold", None)
-    out["bino_threshold"] = (
-        float(threshold_value) if threshold_value is not None else pd.NA
-    )
+   
 
     skipped = []  # (row_idx, reason)
 
@@ -160,7 +155,7 @@ def main():
     p.add_argument("input_csv", help="CSV with a text column (default: first column)")
     p.add_argument("--output-csv", default="text_predictions.csv", help="Where to write results")
     p.add_argument("--text-col", default=None, help="Name of the text column (defaults to first column)")
-    p.add_argument("--batch-size", type=int, default=16, help="Number of texts per batch")
+    p.add_argument("--batch-size", type=int, default=8, help="Number of texts per batch")
 
     # Falcon/Binoculars knobs
     p.add_argument("--observer", default="tiiuae/falcon-7b", help="Observer model name or path")
@@ -183,16 +178,14 @@ def main():
     if text_col not in df.columns:
         raise ValueError(f"Column '{text_col}' not found in CSV. Available: {list(df.columns)}")
 
-    # Instantiate your FalconT4Binoculars
+    # Instantiate FalconT4Binoculars
     bino = FalconT4Binoculars(
         observer_name_or_path=args.observer,
         performer_name_or_path=args.performer,
         max_token_observed=args.max_len,
         mode=args.mode,
     )
-
-    # (Optional) record the chosen mode inside the object so it’s carried into the output
-    # Your class doesn't keep .mode, so we add it for convenience in the output.
+    # class doesn't keep .mode, so we add it for convenience in the output
     setattr(bino, "mode", args.mode)
 
     result = predict_texts(df, bino, text_col=text_col, batch_size=args.batch_size)

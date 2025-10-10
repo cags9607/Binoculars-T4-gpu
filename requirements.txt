@@ -7,3 +7,17 @@ gradio_client
 scikit-learn
 seaborn
 pandas
+torch
+accelerate
+bitsandbytes
+safetensors
+huggingface_hub
+tokenizers
+pillow
+requests
+urllib3
+tqdm
+joblib
+matplotlib
+ftfy
+regex
