@@ -5,11 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-gen-text-binoculars"
 version = "0.1.0"
-description = "Batch AI-text detection via Falcon* Binoculars (T4/A100 friendly)"
-readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "BSD-3-Clause" }
-authors = [{ name = "DeepSee" }]
+description = "Batch AI-text detection via Falcon* Binoculars (T4/A100 friendly)"
+
+# Keep this minimal to avoid CUDA mismatches on Colab.
+# Do NOT list torch here unless you're 100% sure about CUDA wheels.
+dependencies = [
+  "tqdm>=4.66",
+  "transformers>=4.44",
+  "accelerate>=0.33",
+  "bitsandbytes>=0.43.1",
+  "numpy>=1.26",
+]
 
 [tool.setuptools.packages.find]
 include = ["ai_gen_text*", "experimental*", "binoculars*"]
