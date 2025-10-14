@@ -13,10 +13,33 @@ authors = [{ name = "DeepSee" }]
 
 # Keep runtime deps minimal to avoid CUDA wheel mismatches on Colab.
 # (If you want them auto-installed, add them here later.)
+[project]
 dependencies = [
-  "tqdm>=4.66",
-  "numpy>=1.26"
+  "sentencepiece",
+  "transformers>=4.44",
+  "datasets",
+  "numpy",
+  "gradio",
+  "gradio_client",
+  "scikit-learn",
+  "seaborn",
+  "pandas",
+  "torch",
+  "accelerate",
+  "bitsandbytes>=0.43.1",
+  "safetensors",
+  "huggingface_hub",
+  "tokenizers",
+  "pillow",
+  "requests",
+  "urllib3",
+  "tqdm",
+  "joblib",
+  "matplotlib",
+  "ftfy",
+  "regex"
 ]
+
 
 [tool.setuptools]
 packages = { find = { include = ["experimental*", "binoculars*", "ai_gen_text*"] } }
