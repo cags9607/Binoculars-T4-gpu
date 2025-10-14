@@ -136,14 +136,14 @@ def _coerce_text(x: Any) -> Optional[str]:
 
 def _postprocess(
     texts: Sequence[Optional[str]],
-    scores: Sequence[float],
+    scores: Sequence[Optional[float]],   # allow None for failed/empty rows
     mode: str,
     threshold: Optional[float],
     return_text: bool,
 ) -> List[Dict[str, Union[str, float, int]]]:
     """
     Build the output list of dicts, applying label rule (score<thr -> 1).
-    Empty inputs get {'score': None, 'label': None}.
+    Empty/failed inputs get {'score': None, 'label': None}.
     """
     out: List[Dict[str, Union[str, float, int]]] = []
     thr_used: Optional[float] = float(threshold) if threshold is not None else None
@@ -151,15 +151,13 @@ def _postprocess(
     for i, t in enumerate(texts):
         rec: Dict[str, Union[str, float, int]] = {}
 
-        if t is None:
-            # Mirror inference.py behavior: treat empty/NaN as skipped/unknown.
+        if t is None or scores[i] is None:
             rec["score"] = None  # type: ignore[assignment]
             rec["label"] = None  # type: ignore[assignment]
         else:
-            s = float(scores[i])
+            s = float(scores[i])  # type: ignore[arg-type]
             rec["score"] = s
             if thr_used is None:
-                # This should only happen if caller passes threshold=None and model also lacks it.
                 raise RuntimeError(
                     "No threshold available. Pass threshold=... to detect_batch() or expose `.threshold` on the model."
                 )
@@ -196,6 +194,7 @@ def detect_batch(
             max_len:     int max tokens observed per text (default: 384)
             threshold:   float to override model threshold (score<threshold -> AI=1)
             progress:    bool; display tqdm progress (default: False)
+            batch_size:  int; number of texts per scoring chunk (default: 32)
             return_text: bool; include original text in each record (default: True)
             ...backend kwargs forwarded to the underlying Falcon* class
                 e.g., observer_name_or_path=..., performer_name_or_path=...
@@ -203,8 +202,8 @@ def detect_batch(
     Returns:
         List of dicts with:
             - text:      original text (if return_text=True)
-            - score:     float (human-likeness; higher = more human) or None for empty input
-            - label:     1 if AI (score<threshold), 0 if Human; None for empty input
+            - score:     float (human-likeness; higher = more human) or None for empty/failed input
+            - label:     1 if AI (score<threshold), 0 if Human; None for empty/failed input
             - mode:      the thresholding profile used
             - threshold: the threshold value applied
     """
@@ -213,7 +212,12 @@ def detect_batch(
     max_len: int = int(kwargs.pop("max_len", 384))
     threshold: Optional[float] = kwargs.pop("threshold", None)
     progress: bool = bool(kwargs.pop("progress", False))
+    batch_size: int = int(kwargs.pop("batch_size", 32))
     return_text: bool = bool(kwargs.pop("return_text", True))
+
+    # Treat accidental string input as a single-item list
+    if isinstance(texts, (str, bytes)):
+        texts = [texts]  # type: ignore[list-item]
 
     # Normalize inputs and build a mask of valid texts
     items: List[Optional[str]] = [_coerce_text(t) for t in texts]
@@ -222,11 +226,10 @@ def detect_batch(
 
     # Early exit: nothing to score
     if not nonempty_texts:
-        # Prepare a same-length output full of Nones (plus mode/threshold if available)
+        # Resolve a default threshold even when no scoring happens
         if threshold is None:
-            # Resolve a default threshold even when no scoring happens
             threshold = _default_threshold(device, mode)
-        return _postprocess(items, [0.0] * len(items), mode=mode, threshold=threshold, return_text=return_text)
+        return _postprocess(items, [None] * len(items), mode=mode, threshold=threshold, return_text=return_text)
 
     # Build or reuse model (lazy, cached)
     model = _get_model(device=device, mode=mode, max_len=max_len, **kwargs)
@@ -238,23 +241,58 @@ def detect_batch(
             threshold = _default_threshold(device, mode)
     thr = float(threshold)
 
-    # Score in one go (your class supports list-of-texts)
-    iterator = range(len(nonempty_texts))
+    # --------- Chunked scoring to avoid CUDA OOM ---------
+    total = len(nonempty_texts)
+    all_scores: List[Optional[float]] = [None] * len(items)
+
+    # Progress over batches (not per item)
+    num_batches = (total + batch_size - 1) // batch_size
+    batch_iter = range(0, total, batch_size)
     if progress and _HAS_TQDM:
-        iterator = tqdm(iterator, desc=f"Scoring ({device}/{mode}, max_len={max_len})")
+        batch_iter = tqdm(batch_iter, total=num_batches, desc=f"Scoring ({device}/{mode}, max_len={max_len}, bs={batch_size})")
 
-    scores_nonempty: List[float] = []
-    # compute_score accepts list[str]; some implementations also accept a single str
-    batched_scores = model.compute_score(nonempty_texts)  # type: ignore[attr-defined]
-    if isinstance(batched_scores, float):
-        batched_scores = [batched_scores]
-    scores_nonempty = [float(x) for x in batched_scores]
+    # Try to import torch for empty_cache on OOM; optional
+    try:
+        import torch  # type: ignore
+        _HAS_TORCH = True
+    except Exception:
+        _HAS_TORCH = False
 
-    # Stitch scores back to full length (placeholders for empties)
-    all_scores: List[float] = [0.0] * len(items)
-    for j, idx in enumerate(nonempty_idx):
-        all_scores[idx] = scores_nonempty[j]
+    for start in batch_iter:
+        end = min(start + batch_size, total)
+        idxs = nonempty_idx[start:end]
+        txts = nonempty_texts[start:end]
+
+        try:
+            bscores = model.compute_score(txts)  # type: ignore[attr-defined]
+            if isinstance(bscores, float):
+                bscores = [bscores]
+            for i_local, s in enumerate(bscores):
+                all_scores[idxs[i_local]] = float(s)
+
+        except Exception as e:
+            # Batch failed (often CUDA OOM). Best-effort salvage per item.
+            if _HAS_TORCH:
+                try:
+                    torch.cuda.empty_cache()  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+            # Try singleton scoring to salvage what we can
+            for i_local, t in enumerate(txts):
+                abs_idx = idxs[i_local]
+                try:
+                    s = model.compute_score(t)  # type: ignore[attr-defined]
+                    all_scores[abs_idx] = float(s)
+                except Exception:
+                    # leave as None (score/pred will be None)
+                    if _HAS_TORCH:
+                        try:
+                            torch.cuda.empty_cache()  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                    continue
 
     # Build output records
     return _postprocess(items, all_scores, mode=mode, threshold=thr, return_text=return_text)
+
 
