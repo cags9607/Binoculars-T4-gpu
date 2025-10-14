@@ -139,10 +139,32 @@ res = detect_batch(
 )
 
 print(res)
-
-# [{'text': 'The quick...', 'score': 0.73, 'label': 1, 'mode': 'low-fpr', 'threshold': 0.8536}, ...]
 ```
 
+which outputs:
+
+```
+[{'score': 0.734909176826477,
+  'label': 1,
+  'text': 'The quick brown fox jumps over the lazy dog.',
+  'mode': 'accuracy',
+  'threshold': 0.9015310749276843},
+ {'score': 0.9567970037460327,
+  'label': 0,
+  'text': '¡Hola mundo! Aquí el Dr. Capybara dándole caña al estudio de la astrofísica.',
+  'mode': 'accuracy',
+  'threshold': 0.9015310749276843},
+ {'score': 0.7566948533058167,
+  'label': 1,
+  'text': 'Dr. Capy Cosmos, a capybara unlike any other, astounded the scientific community with his\ngroundbreaking research in astrophysics. With his keen sense of observation and unparalleled ability to interpret\ncosmic data, he uncovered new insights into the mysteries of black holes and the origins of the universe. As he\npeered through telescopes with his large, round eyes, fellow researchers often remarked that it seemed as if the\nstars themselves whispered their secrets directly to him. Dr. Cosmos not only became a beacon of inspiration to\naspiring scientists but also proved that intellect and innovation can be found in the most unexpected of creatures.',
+  'mode': 'accuracy',
+  'threshold': 0.9015310749276843},
+ {'score': None,
+  'label': None,
+  'text': '',
+  'mode': 'accuracy',
+  'threshold': 0.9015310749276843}]
+```
 
 ### Demo
 
