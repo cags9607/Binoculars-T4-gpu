@@ -12,12 +12,12 @@ Detection of Machine-Generated Text**.
 
 ## Additions
 
-In order to fit the models on cheap GPUs like T4, this repository incorporates the following:
+In order to fit the models on lower-end GPUs like T4, this repository incorporates the following:
 
-- 4-bit loading (NF4) for both models (observer and performer). This significantly reduces the VRAM usage, allowing both models to fit on the GPU(s) without encountering out-of-memory problems.
+- 4-bit loading (NF4) for both models (observer and performer). This significantly reduces the VRAM usage, allowing both models to fit on the GPU(s) without encountering out-of-memory problems. By doing so, we also leave enough memory to make batch inference more optimal.
 - Keep models in memory, but run them sequentially to maintain peak memory usage low.
- Device mapping to move performer logits to CPU, freeing VRAM.
-CPU offload by moving logits to the CPU and emptying the cache. 
+- Device mapping to move performer logits to CPU, freeing VRAM.
+- CPU offload by moving logits to the CPU and emptying the cache. 
 - Make use of unshifted logits.
 - Shorter max tokens.
 - Shared tokenizer between performer and observer.
@@ -103,6 +103,45 @@ What the flags do
 - --max-len: truncate to this many tokens before scoring.
 
 - --batch-size: higher is faster but uses more VRAM.
+
+### Library
+
+You can also install the package.
+
+```
+pip install "git+https://github.com/deepsee-code/ai-gen-text-classifier@main"
+```
+
+Then, you can import and make predictions using:
+
+```
+from ai_gen_text import detect_batch
+
+texts = [
+    "The quick brown fox jumps over the lazy dog.",
+    "¡Hola mundo! Aquí el Dr. Capybara dándole caña al estudio de la astrofísica.",
+    '''Dr. Capy Cosmos, a capybara unlike any other, astounded the scientific community with his
+groundbreaking research in astrophysics. With his keen sense of observation and unparalleled ability to interpret
+cosmic data, he uncovered new insights into the mysteries of black holes and the origins of the universe. As he
+peered through telescopes with his large, round eyes, fellow researchers often remarked that it seemed as if the
+stars themselves whispered their secrets directly to him. Dr. Cosmos not only became a beacon of inspiration to
+aspiring scientists but also proved that intellect and innovation can be found in the most unexpected of creatures.''',
+    ""]
+
+res = detect_batch(
+    texts,
+    device="t4",
+    mode="accuracy",
+    max_len=384,
+    batch_size=8,  
+    progress=True,
+    return_text = False
+)
+
+print(res)
+
+# [{'text': 'The quick...', 'score': 0.73, 'label': 1, 'mode': 'low-fpr', 'threshold': 0.8536}, ...]
+```
 
 
 ### Demo
