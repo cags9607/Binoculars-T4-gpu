@@ -130,12 +130,12 @@ aspiring scientists but also proved that intellect and innovation can be found i
 
 res = detect_batch(
     texts,
-    device="t4",
-    mode="accuracy",
-    max_len=384,
-    batch_size=8,  
-    progress=True,
-    return_text = False
+    device = "t4",
+    mode = "accuracy",
+    max_len = 384,
+    batch_size = 8,  
+    progress = True,
+    return_text = True
 )
 
 print(res)
