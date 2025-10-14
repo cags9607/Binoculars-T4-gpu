@@ -1,20 +1,17 @@
 # ai_gen_text/detector.py
 """
-Main detection module.
+Main detection module
 
-Exposes:
-    detect_batch(texts, **kwargs) -> List[dict]
-
-- Uses your Falcon* Binoculars classes (T4 by default).
+- Uses Falcon* Binoculars classes (T4 by default).
 - score = human-likeness (higher => more human)
 - label rule: score < threshold -> AI (1), else Human (0)
 
 Example:
     from ai_gen_text import detect_batch
     out = detect_batch(
-        ["Hola!", "The quick brown fox..."],
+        ["Hola mundi!", "The quick brown fox..."],
         device="t4",
-        mode="low-fpr",
+        mode="accuracy",
         max_len=384,
         batch_size=32,
         progress=False,
@@ -72,7 +69,6 @@ def _default_threshold(device: str, mode: str) -> float:
             return float(_ACC_T4)
         raise ValueError("mode must be one of {'low-fpr','accuracy'}")
     elif device.lower() == "a100":
-        # If you keep different A100 thresholds, import them above and use here.
         if mode == "low-fpr":
             return float(_FPR_T4)
         if mode == "accuracy":
@@ -85,13 +81,13 @@ def _default_threshold(device: str, mode: str) -> float:
 def _get_model(
     *,
     device: str = "t4",
-    mode: str = "low-fpr",
+    mode: str = "accuracy",
     max_len: int = 384,
     **backend_kwargs: Any,
 ):
     """
     Lazily build (and cache) a Falcon* Binoculars model.
-    For T4 this uses your 4-bit NF4 sequential implementation.
+    For T4 this uses 4-bit NF4 sequential implementation.
     """
     key = (device.lower(), mode, int(max_len), tuple(sorted(backend_kwargs.items())))
     if key in _MODELS:
@@ -191,8 +187,8 @@ def detect_batch(
             and produce {'score': None, 'label': None}.
         **kwargs:
             device:      {'t4','a100'} (default: 't4')
-            mode:        {'low-fpr','accuracy'} (default: 'low-fpr')
-            max_len:     int max tokens observed per text (default: 384)
+            mode:        {'low-fpr','accuracy'} (default: 'accuracy')
+            max_len:     int max tokens observed per text (default: 384 --- about 280-300 words)
             threshold:   float to override model threshold (score<threshold -> AI=1)
             progress:    bool; display tqdm progress (default: False)
             batch_size:  int; number of texts per scoring chunk (default: 32)
