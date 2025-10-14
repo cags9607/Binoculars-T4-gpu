@@ -114,7 +114,7 @@ pip install "git+https://github.com/deepsee-code/ai-gen-text-classifier@main"
 
 Then, you can import and make predictions using:
 
-```
+```python
 from ai_gen_text import detect_batch
 
 texts = [
