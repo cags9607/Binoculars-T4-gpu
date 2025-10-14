@@ -13,7 +13,6 @@ authors = [{ name = "DeepSee" }]
 
 # Keep runtime deps minimal to avoid CUDA wheel mismatches on Colab.
 # (If you want them auto-installed, add them here later.)
-[project]
 dependencies = [
   "sentencepiece",
   "transformers>=4.44",
