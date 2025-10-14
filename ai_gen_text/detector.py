@@ -16,6 +16,7 @@ Example:
         device="t4",
         mode="low-fpr",
         max_len=384,
+        batch_size=32,
         progress=False,
     )
 """
@@ -231,7 +232,11 @@ def detect_batch(
             threshold = _default_threshold(device, mode)
         return _postprocess(items, [None] * len(items), mode=mode, threshold=threshold, return_text=return_text)
 
-    # Build or reuse model (lazy, cached)
+    # Remove consumer-only kwargs so they won't be forwarded to the model __init__
+    for _k in ("batch_size", "progress", "return_text"):
+        kwargs.pop(_k, None)
+
+    # Build or reuse model (only model-relevant kwargs are forwarded)
     model = _get_model(device=device, mode=mode, max_len=max_len, **kwargs)
 
     # Resolve threshold: explicit arg wins; else model.threshold; else default mapping
@@ -245,11 +250,14 @@ def detect_batch(
     total = len(nonempty_texts)
     all_scores: List[Optional[float]] = [None] * len(items)
 
-    # Progress over batches (not per item)
     num_batches = (total + batch_size - 1) // batch_size
     batch_iter = range(0, total, batch_size)
     if progress and _HAS_TQDM:
-        batch_iter = tqdm(batch_iter, total=num_batches, desc=f"Scoring ({device}/{mode}, max_len={max_len}, bs={batch_size})")
+        batch_iter = tqdm(
+            batch_iter,
+            total=num_batches,
+            desc=f"Scoring ({device}/{mode}, max_len={max_len}, bs={batch_size})",
+        )
 
     # Try to import torch for empty_cache on OOM; optional
     try:
@@ -267,10 +275,10 @@ def detect_batch(
             bscores = model.compute_score(txts)  # type: ignore[attr-defined]
             if isinstance(bscores, float):
                 bscores = [bscores]
-            for i_local, s in enumerate(bscores):
-                all_scores[idxs[i_local]] = float(s)
+            for j, s in enumerate(bscores):
+                all_scores[idxs[j]] = float(s)
 
-        except Exception as e:
+        except Exception:
             # Batch failed (often CUDA OOM). Best-effort salvage per item.
             if _HAS_TORCH:
                 try:
@@ -278,8 +286,8 @@ def detect_batch(
                 except Exception:
                     pass
             # Try singleton scoring to salvage what we can
-            for i_local, t in enumerate(txts):
-                abs_idx = idxs[i_local]
+            for j, t in enumerate(txts):
+                abs_idx = idxs[j]
                 try:
                     s = model.compute_score(t)  # type: ignore[attr-defined]
                     all_scores[abs_idx] = float(s)
@@ -294,5 +302,3 @@ def detect_batch(
 
     # Build output records
     return _postprocess(items, all_scores, mode=mode, threshold=thr, return_text=return_text)
-
-
