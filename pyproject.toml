@@ -3,16 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ai-gen-text-binoculars"              # distribution name pip will see
-version = "0.1.8"                            # bump when packaging changes
+name = "ai-gen-text-binoculars"             
+version = "0.1.0"                           
 description = "Batch AI-text detection via Falcon* Binoculars (T4/A100 friendly)"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE.md" }
 authors = [{ name = "DeepSee" }]
 
-# Keep runtime deps minimal to avoid CUDA wheel mismatches on Colab.
-# (If you want them auto-installed, add them here later.)
 dependencies = [
   "sentencepiece",
   "transformers>=4.44",
@@ -43,6 +41,3 @@ dependencies = [
 [tool.setuptools]
 packages = { find = { include = ["experimental*", "binoculars*", "ai_gen_text*"] } }
 
-# Optional: if you want a CLI (not required since your non-CLI path worked)
-# [project.scripts]
-# bino-infer = "experimental.inference:main"
